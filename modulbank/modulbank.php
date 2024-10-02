@@ -35,19 +35,12 @@ function init_modulbank() {
         protected function is_order_completed($order) {
             return $order->is_paid();
         }
-        protected function mark_order_as_completed($order, array $data) {
-            try {
-                if (function_exists("wc_reduce_stock_levels")){
-                    wc_reduce_stock_levels($order->get_id());
-                } else {
-                    $order->reduce_order_stock();
-                }
-
-            } catch (Exception $e)
-            {
-
-            }
-            return $order->payment_complete();
+        protected function add_payment_to_order($order, array $data) {
+            return $order->add_transaction($data['amount'], [
+                'transaction_id' => $data['transaction_id'],
+                'payment_method' => $this->plugin->id,
+                'payment_method_title' => $this->plugin->method_title,
+            ]);
         }
         protected function mark_order_as_error($order, array $data) {
             //
@@ -355,20 +348,16 @@ function init_modulbank() {
                 $order = wc_get_order($order_id);
                 $ff = $gw->get_fpayments_form();
                 $meta = '';
-                $description = '';
+                $description = $order->get_payment_description();
 
-                if (version_compare($woocommerce->version, "3.0", ">=")) {
-                    $billing_email = $order->get_billing_email();
-                    $billing_phone = $order->get_billing_phone();
-                    $order_total = $order->get_total();
-                    $currency = $order->get_currency();
-                } else {
-                    $billing_email = $order->billing_email;
-
-                    $billing_phone = $order->billing_phone;
-                    $order_total = number_format($order->order_total, 2, '.', '');
-                    $currency = get_woocommerce_currency();
+                $billing_email = $order->get_billing_email();
+                $billing_phone = $order->get_billing_phone();
+                $order_total = $order->get_unpaid_total();
+                if ($order->get_payment_amount()) {
+                    $order_total = $order->get_payment_amount();
                 }
+
+                $currency = $order->get_currency();
 
                 $billing_phone = modulbank_normalize_phone($billing_phone);
 
@@ -436,12 +425,12 @@ function init_modulbank() {
         $payment_object = $gw->settings['payment_object'];
         $payment_method = $gw->settings['payment_method'];
         $vat = $gw->settings['vat'];
-
-        if (version_compare($woocommerce->version, "3.0", ">=")) {
-            $shipping_total = $order->get_shipping_total();
+        if ($order->get_payment_amount()) {
+            $payment_method = $order->get_payment_amount() < $order->get_total() ? 'prepayment' : 'full_prepayment';
         } else {
-            $shipping_total = $order->get_total_shipping();
+            $payment_method = $order->get_unpaid_total() < $order->get_total() ? 'prepayment' : 'full_prepayment';
         }
+        $shipping_total = $order->get_shipping_total();
 
         $receipt_items = array();
         $order_items = $order->get_items();

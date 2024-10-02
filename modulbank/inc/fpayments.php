@@ -324,7 +324,7 @@ abstract class AbstractFPaymentsCallbackHandler {
     /**
     * @return bool
     */
-    abstract protected function mark_order_as_completed($order, array $data);
+    abstract protected function add_payment_to_order($order, array $data);
     /**
     * @return bool
     */
@@ -348,13 +348,11 @@ abstract class AbstractFPaymentsCallbackHandler {
             $error = 'Unknown order_id';
         } else if ($this->get_order_currency($order) != $data['currency']) {
             $error = 'Currency mismatch: "' . $this->get_order_currency($order) . '" != "' . $data['currency'] . '"';
-        } else if ($this->get_order_amount($order) != $data['amount']) {
-            $error = 'Amount mismatch: "' . $this->get_order_amount($order) . '" != "' . $data['amount'] . '"';
         } else if ($ff->is_order_completed($data)) {
             $debug_messages[] = "info: order completed";
             if ($this->is_order_completed($order)) {
                 $debug_messages[] = "order already marked as completed";
-            } else if ($this->mark_order_as_completed($order, $data)) {
+            } else if ($this->add_payment_to_order($order, $data)) {
                 $debug_messages[] = "mark order as completed";
             } else {
                 $error = "Can't mark order as completed";
